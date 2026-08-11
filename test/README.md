@@ -1,16 +1,13 @@
 # Testing
 
-A driver script: `serial_tx_driver.py` is included to validate input sent to the TX Giga is received on the RX Giga.
+Testing assumes the following hardware is available:
 
-```
-# Create environment
-python3 -m venv env
-source env/bin/activate
-pip3 install -r requirement.txt
+- Nvidia Jetson Orin Nano Super Dev Kit
+- 2x Arduino Giga R1 Wifi
+- Host Computer
 
-# Run test script
-python3 serial_tx_driver.py
+The Jetson will be connected to each Giga with a Ground and GPIO in order to simulate a PPS and act as a stand in GNSS module.
 
-# If you are having trouble with serial permissions
-sudo ./env/bin/python3 serial_tx_driver.py
-```
+Each Giga board will be power over serial by your host computer in order to monitor debug serial logs.
+
+TODO: 2 Pictures here showing the jetson connected to each giga
