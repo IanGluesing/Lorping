@@ -10,4 +10,14 @@ The Jetson will be connected to each Giga with a Ground and GPIO in order to sim
 
 Each Giga board will be power over serial by your host computer in order to monitor debug serial logs.
 
-TODO: 2 Pictures here showing the jetson connected to each giga
+## Jetson PPS -> Rx Giga Board Setup
+
+The Giga acting as the receiver has these connections with the Jetson.
+
+<img src="../docs/RxGigaPPSSetup.png">
+
+## Jetson PPS -> Tx Giga Board Setup
+
+The Giga acting as the transmitter has these connections with the Jetson.
+
+<img src="../docs/TxGigaPPSSetup.png">
