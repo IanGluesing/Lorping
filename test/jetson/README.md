@@ -2,7 +2,7 @@
 
 TODO: Add requirements.txt
 
-If a GPS module is not available or you dont want to buy one(like me), a jetson orin nano super dev kit is used in its place, creating a simulated 1Hz PPS signal to each giga board. 
+If a GPS module is not available or you dont want to buy one(like me), a jetson orin nano super dev kit is used in its place, creating a simulated 1Hz PPS signal to each giga board. This 1Hz pulse will act as the common time source the giga boards will base their hop counter on.
 
 I am aware of the flaws with this approach but it is good enough for simple testing.
 
