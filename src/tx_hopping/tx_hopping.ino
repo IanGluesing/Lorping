@@ -2,6 +2,7 @@
 #include <RadioLib.h>
 #include <mbed.h>
 #include <chrono>
+#include <hop_table.h>
 
 using namespace mbed;
 using namespace std::chrono_literals;
@@ -34,28 +35,6 @@ constexpr int PIN_DIO1  = 38;
 
 // Arduino Pin D44 <- connected with -> SX1262 RESET Pin
 constexpr int PIN_RESET = 44;
-
-// ============================================================
-// Hop Table
-// ============================================================
-
-// Shared Tx/Rx Hop Table
-constexpr float HOP_TABLE[] = {
-    868.0,
-    868.2,
-    868.4,
-    868.6,
-    868.8,
-    869.0,
-    869.2,
-    869.4,
-    869.6,
-    869.8
-};
-
-// Hop Table Size
-constexpr size_t HOP_TABLE_SIZE =
-    sizeof(HOP_TABLE) / sizeof(HOP_TABLE[0]);
 
 // ============================================================
 // Peripherals

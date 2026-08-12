@@ -11,6 +11,7 @@ How to build, assuming `arduino-cli` is installed.
 arduino-cli compile \
   --fqbn arduino:mbed_giga:giga \
   --verbose \
+  --libraries $(pwd)/hop_table \
   --output-dir ./build \
   tx_hopping/
 
@@ -18,6 +19,7 @@ arduino-cli compile \
 arduino-cli compile \
   --fqbn arduino:mbed_giga:giga \
   --upload \
+  --libraries $(pwd)/hop_table \
   --port /dev/<CHANGE_ME_PATH_TO_GIGA_SERIAL> \
   --verbose \
   tx_hopping/
@@ -29,6 +31,7 @@ arduino-cli compile \
 arduino-cli compile \
   --fqbn arduino:mbed_giga:giga \
   --verbose \
+  --libraries $(pwd)/hop_table \
   --output-dir ./build \
   rx_hopping/
 
@@ -36,6 +39,7 @@ arduino-cli compile \
 arduino-cli compile \
   --fqbn arduino:mbed_giga:giga \
   --upload \
+  --libraries $(pwd)/hop_table \
   --port /dev/<CHANGE_ME_PATH_TO_GIGA_SERIAL> \
   --verbose \
   rx_hopping/
