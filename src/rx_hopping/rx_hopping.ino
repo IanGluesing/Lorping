@@ -3,28 +3,11 @@
 #include <mbed.h>
 #include <chrono>
 
+#include <device_config.h>
 #include <hop_table.h>
 #include <lora_config.h>
 
 using namespace mbed;
-using namespace std::chrono_literals;
-
-// ============================================================
-// Configuration
-// ============================================================
-
-// Baud Rate used for Serial connection
-constexpr uint32_t SERIAL_BAUD_RATE = 115200; 
-
-// User defined hop period Hz = 1 / Period => 10Hz Hop Rate
-constexpr std::chrono::milliseconds HOP_PERIOD_MS = 100ms;
-
-// Arduino Giga R1 Wifi and Waveshare SX1262 Pinouts can be found here:
-// Arduino Pinout: https://content.arduino.cc/assets/ABX00063-full-pinout.pdf
-// SX1262 Pinout: https://www.waveshare.com/core1262-868m.htm 
-
-// Arduino Pin handling PPS input from GPS Source or Pseudo PPS Provider: D25
-constexpr int PPS_PIN = 25;
 
 // ============================================================
 // Peripherals
@@ -48,33 +31,12 @@ Timer logging_timer;
 // State
 // ============================================================
 
-// Flag denoting a PPS Signal was received
-volatile bool ppsReceived = false;
-
-// Flag denoting a hop needs to occur
-volatile bool hopPending = false;
-
 // Flag denoting data was received by the SX1262 Module
 volatile bool receivedData = false;
-
-// Current hop count
-volatile uint32_t hopCount = 0;
 
 // ============================================================
 // Interrupts
 // ============================================================
-
-// PPS Signal from PPS Provider
-void ppsISR()
-{
-    ppsReceived = true;
-}
-
-// Hardware timer callback signalling a hop needs to occur
-void hopTickOccurred()
-{
-    hopPending = true;
-}
 
 // DIO1 Interrupt from SX1262 Module indicating data has been received 
 void receivedDataOccurred()
@@ -129,10 +91,10 @@ void setup()
     // These settings can be used to communicate to the Waveshare USB module, or another
     // SX1262 running the TX code that this code is paired with.
     // Found here: https://www.amazon.com/dp/B0DTKDXMN2?ref=ppx_yo2ov_dt_b_fed_asin_title
-    radio_call_status = radio.setFrequency(868.0);
-    radio_call_status = radio.setBandwidth(125.0);
-    radio_call_status = radio.setSpreadingFactor(7);
-    radio_call_status = radio.setCodingRate(5);
+    radio_call_status = radio.setFrequency(INITIAL_LORA_FREQUENCY);
+    radio_call_status = radio.setBandwidth(INITIAL_LORA_BANDWIDTH);
+    radio_call_status = radio.setSpreadingFactor(LORA_SPREADING_FACTOR);
+    radio_call_status = radio.setCodingRate(LORA_CODING_RATE);
     radio_call_status = radio.setSyncWord(0x12);
     radio_call_status = radio.setCRC(true);
 
