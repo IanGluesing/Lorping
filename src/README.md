@@ -14,7 +14,7 @@ arduino-cli compile \
   --libraries $(pwd)/hop_table \
   --libraries $(pwd)/lora_impl \
   --output-dir ./build \
-  tx_hopping/
+  bin/tx_hopping/
 
 # Compile and deploy
 arduino-cli compile \
@@ -24,7 +24,7 @@ arduino-cli compile \
   --libraries $(pwd)/lora_impl \
   --port /dev/<CHANGE_ME_PATH_TO_GIGA_SERIAL> \
   --verbose \
-  tx_hopping/
+  bin/tx_hopping/
 ```
 ### Building Rx Example
 
@@ -36,7 +36,7 @@ arduino-cli compile \
   --libraries $(pwd)/hop_table \
   --libraries $(pwd)/lora_impl \
   --output-dir ./build \
-  rx_hopping/
+  bin/rx_hopping/
 
 # Compile and deploy
 arduino-cli compile \
@@ -46,5 +46,5 @@ arduino-cli compile \
   --libraries $(pwd)/lora_impl \
   --port /dev/<CHANGE_ME_PATH_TO_GIGA_SERIAL> \
   --verbose \
-  rx_hopping/
+  bin/rx_hopping/
 ```
