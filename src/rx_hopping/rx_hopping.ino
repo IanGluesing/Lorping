@@ -2,7 +2,9 @@
 #include <RadioLib.h>
 #include <mbed.h>
 #include <chrono>
+
 #include <hop_table.h>
+#include <lora_config.h>
 
 using namespace mbed;
 using namespace std::chrono_literals;
@@ -23,18 +25,6 @@ constexpr std::chrono::milliseconds HOP_PERIOD_MS = 100ms;
 
 // Arduino Pin handling PPS input from GPS Source or Pseudo PPS Provider: D25
 constexpr int PPS_PIN = 25;
-
-// Arduino Pin D26 <- connected with -> SX1262 CS Pin
-constexpr int PIN_CS = 26;
-
-// Arduino Pin D32 <- connected with -> SX1262 BUSY Pin
-constexpr int PIN_BUSY  = 32;
-
-// Arduino Pin D38 <- connected with -> SX1262 DIO1 Pin
-constexpr int PIN_DIO1  = 38;
-
-// Arduino Pin D44 <- connected with -> SX1262 RESET Pin
-constexpr int PIN_RESET = 44;
 
 // ============================================================
 // Peripherals
