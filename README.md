@@ -60,12 +60,13 @@ Image with SPI only connections between Giga and SX1262: TODO
 
 ## Testing and Verification
 
+A ping test utilizing your host computers network stack, with LoRa as the physical network layer can be seen here: [Ping Test](test/host_computer/tun_ping_test/)
+
 ## Future work and improvements
 
 - Allow variable param setting
     - Hop Rate
     - Custom Hop Table
 - GPS PPS Source
-- Single binary with both tx/rx capability
 - Board agnostic code
 - Libraries are all relying on imports of the main .ino, it shouldnt be like this
