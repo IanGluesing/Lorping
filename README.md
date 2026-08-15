@@ -68,3 +68,4 @@ Image with SPI only connections between Giga and SX1262: TODO
 - GPS PPS Source
 - Single binary with both tx/rx capability
 - Board agnostic code
+- Libraries are all relying on imports of the main .ino, it shouldnt be like this

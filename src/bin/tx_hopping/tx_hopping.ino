@@ -11,7 +11,6 @@
 // Local Libraries
 // ============================================================
 
-#include <datalink_receive.h>
 #include <device_config.h>
 #include <hop_table.h>
 #include <lora_config.h>
