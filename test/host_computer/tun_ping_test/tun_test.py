@@ -133,14 +133,6 @@ class SerialPacketReceiver:
 
         if waiting:
             data = self.serial.read(waiting)
-
-            print(
-                f"\nRAW SERIAL {len(data)} bytes:"
-            )
-            print(
-                " ".join(f"{b:02X}" for b in data)
-            )
-
             self.buffer.extend(data)
 
         packets = []
@@ -154,11 +146,6 @@ class SerialPacketReceiver:
                 ">H",
                 self.buffer[0:2]
             )[0]
-
-            print(
-                f"FRAME: length={packet_length}, "
-                f"buffer={len(self.buffer)}"
-            )
 
             total_length = 2 + packet_length
 
@@ -337,7 +324,7 @@ def main():
                     #     f"{len(packet)} bytes"
                     # )
                     
-                    print("TunA Sending Packet to Giga A:")
+                    print("TunA Packet -> Giga A:")
                     print(" ".join(f"{b:02X}" for b in packet))
 
                     to_giga_a_serial.write(
@@ -361,7 +348,7 @@ def main():
                     #     f"{len(packet)} bytes"
                     # )
                     
-                    print("TunB Sending Packet to Giga B:")
+                    print("TunB Packet -> Giga B:")
                     print(" ".join(f"{b:02X}" for b in packet))
 
                     to_giga_b_serial.write(
@@ -385,7 +372,7 @@ def main():
                     #     f"{len(packet)} bytes"
                     # )
                     
-                    print("TunA Got Packet from Giga A:")
+                    print("Giga A Packet -> TunA:")
                     print(" ".join(f"{b:02X}" for b in packet))
                     
                     utun_packet = add_utun_header(packet)
@@ -406,7 +393,7 @@ def main():
 
                 for packet in packets:
 
-                    print("TunB Got Packet from Giga B:")
+                    print("Giga B Packet -> TunB:")
                     print(" ".join(f"{b:02X}" for b in packet))
                     
                     utun_packet = add_utun_header(packet)

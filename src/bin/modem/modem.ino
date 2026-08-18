@@ -79,7 +79,7 @@ void setup()
     radio_call_status = radio.setBandwidth(INITIAL_LORA_BANDWIDTH);
     radio_call_status = radio.setSpreadingFactor(LORA_SPREADING_FACTOR);
     radio_call_status = radio.setCodingRate(LORA_CODING_RATE);
-    radio_call_status = radio.setSyncWord(0x12);
+    radio_call_status = radio.setSyncWord(SYNC_WORD);
     radio_call_status = radio.setCRC(true);
 
     radio.setDio1Action(radioReceiveISR);
@@ -88,8 +88,7 @@ void setup()
     // Start SX1262 receive
     // ========================================================
 
-    int radio_result =
-        radio.startReceive();
+    int radio_result = radio.startReceive();
 
     if (radio_result != RADIOLIB_ERR_NONE) {
         Serial.print("startReceive failed: ");
@@ -200,20 +199,13 @@ void loop()
         if (radio_call_status == RADIOLIB_ERR_NONE) {
 
             // Send actual packet length to Mac
-            Serial.write(
-                (uint8_t)(packetLength >> 8)
-            );
-
-            Serial.write(
-                (uint8_t)(packetLength & 0xFF)
-            );
+            Serial.write((uint8_t)(packetLength >> 8));
+            Serial.write((uint8_t)(packetLength & 0xFF));
 
             // Send exactly the received bytes
-            Serial.write(
-                rxBuffer,
-                packetLength
-            );
+            Serial.write(rxBuffer, packetLength);
 
+            // Clear serial
             Serial.flush();
         }
         else {
