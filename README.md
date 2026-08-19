@@ -60,7 +60,7 @@ Image with SPI only connections between Giga and SX1262: TODO
 
 ## Testing and Verification
 
-A ping test utilizing your host computers network stack, with LoRa as the physical network layer can be seen here: [Ping Test](test/host_computer/tun_ping_test/)
+Point to point networking can be demonstrated uses `ping` and `curl`, with LoRa as the physical network layer and can be seen here: [Tun Testing](test/host_computer/tun_ping_test/)
 
 ## Future work and improvements
 

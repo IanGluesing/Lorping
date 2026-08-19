@@ -16,9 +16,36 @@
 
 using namespace mbed;
 
-uint8_t rxBuffer[256];
-uint8_t txBuffer[256];
+// ============================================================
+// Tx/Rx Ring buffers
+// ============================================================
 
+// Total ring size and LoRa transmit chunk size
+constexpr size_t RING_SIZE = 65565;
+constexpr size_t CHUNK_SIZE = 200;
+
+// Bytes that need to be transmitted through LoRa
+uint8_t txRing[RING_SIZE];
+
+// Bytes that were received over LoRa
+uint8_t rxRing[RING_SIZE];
+
+// Starting index of bytes to transmit
+size_t txHead = 0;
+// Ending index of bytes to transmit
+size_t txTail = 0;
+// Current number of bytes needing to be transmitted
+size_t txCount = 0;
+
+// Starting index of bytes received over LoRa
+size_t rxHead = 0;
+// Ending index of bytes received over LoRa
+size_t rxTail = 0;
+// Current number of bytes received over LoRa
+size_t rxCount = 0;
+
+// Temp buffer of bytes that will be transmitted
+uint8_t radioTxBuffer[CHUNK_SIZE];
 
 // ============================================================
 // Peripherals
@@ -110,66 +137,14 @@ void setup()
 
 void loop()
 {
-    // Rx from Serial, Tx Radio Packet out
-    if (Serial.available()) {
-        // --------------------------------------------------------
-        // Serial -> GIGA -> SX1262
-        //
-        // Serial format:
-        //   [2-byte length, big endian]
-        //   [raw packet bytes]
-        // --------------------------------------------------------
+    // Read in characters and store in TxRing
+    while (Serial.available()) {
+        // Add to current tail position
+        txRing[txTail] = Serial.read();
 
-        static uint16_t packetLength = 0;
-        static uint16_t bytesReceived = 0;
-
-        // Read packet length
-        if (packetLength == 0 && Serial.available() >= 2) {
-
-            uint8_t lenHigh = Serial.read();
-            uint8_t lenLow  = Serial.read();
-
-            packetLength =
-                ((uint16_t)lenHigh << 8) |
-                lenLow;
-
-            bytesReceived = 0;
-
-            if (packetLength > sizeof(txBuffer)) {
-                Serial.println("ERROR: packet too large");
-                packetLength = 0;
-                return;
-            }
-        }
-
-        // Read packet bytes
-        if (packetLength > 0) {
-
-            while (Serial.available() && bytesReceived < packetLength) {
-
-                txBuffer[bytesReceived++] = Serial.read();
-            }
-
-            // Got the entire packet
-            if (bytesReceived == packetLength) {
-
-                radio.standby();
-                int status = radio.transmit(
-                    txBuffer,
-                    packetLength
-                );
-                radio.startReceive();
-
-                if (status != RADIOLIB_ERR_NONE) {
-                    Serial.print("TX FAILED: ");
-                    Serial.println(status);
-                }
-
-                // Reset state for next packet
-                packetLength = 0;
-                bytesReceived = 0;
-            }
-        }
+        // Update tail position and number of bytes in buffer
+        txTail = (txTail + 1) % RING_SIZE;
+        txCount++;
     }
 
     // Rx Radio packet in, Tx to Serial
@@ -182,14 +157,9 @@ void loop()
         // Get the actual number of bytes received
         size_t packetLength = radio.getPacketLength();
 
-        if (packetLength > 255) {
-            Serial.println("RX ERROR: packet too large");
-            radio.startReceive();
-            return;
-        }
-
+        // Read data
         int radio_call_status = radio.readData(
-            rxBuffer,
+            rxRing,
             packetLength
         );
 
@@ -197,13 +167,8 @@ void loop()
         radio.startReceive();
 
         if (radio_call_status == RADIOLIB_ERR_NONE) {
-
-            // Send actual packet length to Mac
-            Serial.write((uint8_t)(packetLength >> 8));
-            Serial.write((uint8_t)(packetLength & 0xFF));
-
-            // Send exactly the received bytes
-            Serial.write(rxBuffer, packetLength);
+            // Senfd received bytes over sereal
+            Serial.write(rxRing, packetLength);
 
             // Clear serial
             Serial.flush();
@@ -214,26 +179,48 @@ void loop()
         }
     }
 
-    // 3. Handle the event safely in the main loop
+    // Handle Interrupt
     if (dio1Triggered) {
-        dio1Triggered = false; // Reset the flag immediately
+        // Reset flag
+        dio1Triggered = false;
 
         // Read the hardware IRQ status register via SPI
         uint32_t irqStatus = radio.getIrqFlags();
 
-        // Check if Transmission Finished
-        if (irqStatus & RADIOLIB_SX126X_IRQ_TX_DONE) {
-            // Serial.println(F("\nEvent: TX Done! Packet sent successfully."));
-            // Handle your next action after a successful send
-        }
-
         // Check if Data was Received
         if (irqStatus & RADIOLIB_SX126X_IRQ_RX_DONE) {
-            // Serial.println(F("\nEvent: Rx Done!"));
             radioPacketReceived = true;
         }
 
-        // Optional: Always clear the hardware flags after reading them
+        // Clear flags
         radio.clearIrqFlags(RADIOLIB_SX126X_IRQ_TX_DONE | RADIOLIB_SX126X_IRQ_RX_DONE);
+    }
+
+    // Determine number of bytes to transmit
+    auto bytes_to_transmit = min(txCount, CHUNK_SIZE);
+
+    // Read in bytes to buffer, only update the real params if transmit is successful
+    auto tmp_head = txHead;
+    for (int i = 0; i < bytes_to_transmit; i++) {
+        radioTxBuffer[i] = txRing[tmp_head];
+        // Handle potential wrap around case
+        tmp_head = (tmp_head + 1) % RING_SIZE;
+    }
+
+    // Transmit if valid
+    if (bytes_to_transmit > 0) {
+        // Transmit logic
+        radio.standby();
+        int transmit_status = radio.transmit(
+            radioTxBuffer,
+            bytes_to_transmit
+        );
+        radio.startReceive();
+
+        // Update flags if valid transmit
+        if (transmit_status == RADIOLIB_ERR_NONE) {
+            txCount -= bytes_to_transmit;
+            txHead = tmp_head;
+        }
     }
 }

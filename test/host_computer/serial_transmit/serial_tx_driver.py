@@ -24,7 +24,7 @@ serial_reader.start()
 try:
     while True:
         message = input("> ")
-        serial_connection.write((message + "\n").encode())
+        serial_connection.write((message).encode())
         serial_connection.flush()
 except KeyboardInterrupt:
     print("\nExiting.")

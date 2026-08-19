@@ -7,6 +7,7 @@ import select
 import ctypes
 import serial
 import sys
+import time
 
 # ============================================================
 # Configuration
@@ -133,7 +134,16 @@ class SerialPacketReceiver:
 
         if waiting:
             data = self.serial.read(waiting)
+
+            # print(
+            #     f"\n{self.serial.port}: RAW SERIAL {len(data)} bytes:"
+            # )
+            # print(
+            #     " ".join(f"{b:02X}" for b in data)
+            # )
+            
             self.buffer.extend(data)
+            # print(f"{self.serial.port} Buffer after serial read:", " ".join(f"{b:02X}" for b in self.buffer))
 
         packets = []
 
@@ -159,6 +169,10 @@ class SerialPacketReceiver:
             del self.buffer[:total_length]
 
             packets.append(packet)
+            # print(
+            #     f"New packet received from {self.serial.port}:",
+            #     " ".join(f"{b:02X}" for b in packet)
+            # )
 
         return packets
 
@@ -226,7 +240,7 @@ def main():
 
     print(f"Opening GIGA A: {SERIAL_A}")
 
-    to_giga_a_serial = serial.Serial(
+    giga_a_serial = serial.Serial(
         SERIAL_A,
         BAUD_RATE,
         timeout=0
@@ -234,7 +248,7 @@ def main():
 
     print(f"Opening GIGA B: {SERIAL_B}")
 
-    to_giga_b_serial = serial.Serial(
+    giga_b_serial = serial.Serial(
         SERIAL_B,
         BAUD_RATE,
         timeout=0
@@ -264,13 +278,15 @@ def main():
     # Serial packet receivers
     # --------------------------------------------------------
 
-    rx_a = SerialPacketReceiver(to_giga_a_serial)
-    rx_b = SerialPacketReceiver(to_giga_b_serial)
+    receive_serial_from_giga_a = SerialPacketReceiver(giga_a_serial)
+    receive_serial_from_giga_b = SerialPacketReceiver(giga_b_serial)
 
     print()
     print("========================================")
     print(" Interfaces")
     print("========================================")
+    print("GIGA A:", giga_a_serial.port)
+    print("GIGA B:", giga_b_serial.port)
     print()
     print(f"{tun_a_name} -> GIGA A -> LoRa")
     print(f"{tun_b_name} -> GIGA B -> LoRa")
@@ -292,117 +308,47 @@ def main():
     # --------------------------------------------------------
 
     try:
-
         while True:
+            # 1. ALWAYS read serial ports as fast as possible (No select()!)
+            packets_from_a = receive_serial_from_giga_a.receive_packets()
+            for packet in packets_from_a:
+                print(f"Giga A Packet -> TunA:")
+                print(" ".join(f"{b:02X}" for b in packet))
+                tun_a.send(add_utun_header(packet))
 
-            readable, _, _ = select.select(
-                [
-                    tun_a,
-                    tun_b,
-                    to_giga_a_serial,
-                    to_giga_b_serial
-                ],
-                [],
-                [],
-                1.0
-            )
+            packets_from_b = receive_serial_from_giga_b.receive_packets()
+            for packet in packets_from_b:
+                print(f"Giga B Packet -> TunB:")
+                print(" ".join(f"{b:02X}" for b in packet))
+                tun_b.send(add_utun_header(packet))
+
+            # 2. Use select() ONLY for the TUN interfaces with a tiny timeout
+            readable, _, _ = select.select([tun_a, tun_b], [], [], 0.001)
 
             # =================================================
             # TUN A -> GIGA A
             # =================================================
-
             if tun_a in readable:
-
                 raw = tun_a.recv(65535)
-
                 packet = remove_utun_header(raw)
-
                 if packet is not None:
-
-                    # print(
-                    #     f"TUN A -> GIGA A: "
-                    #     f"{len(packet)} bytes"
-                    # )
-                    
                     print("TunA Packet -> Giga A:")
                     print(" ".join(f"{b:02X}" for b in packet))
-
-                    to_giga_a_serial.write(
-                        frame_packet(packet)
-                    )
+                    giga_a_serial.write(frame_packet(packet))
 
             # =================================================
             # TUN B -> GIGA B
             # =================================================
-
             if tun_b in readable:
-
                 raw = tun_b.recv(65535)
-
                 packet = remove_utun_header(raw)
-
                 if packet is not None:
-
-                    # print(
-                    #     f"TUN B -> GIGA B: "
-                    #     f"{len(packet)} bytes"
-                    # )
-                    
                     print("TunB Packet -> Giga B:")
                     print(" ".join(f"{b:02X}" for b in packet))
-
-                    to_giga_b_serial.write(
-                        frame_packet(packet)
-                    )
-
-            # =================================================
-            # GIGA A -> TUN A
-            #
-            # This is data received over LoRa from GIGA B.
-            # =================================================
-
-            if to_giga_a_serial in readable:
-
-                packets = rx_a.receive_packets()
-
-                for packet in packets:
-
-                    # print(
-                    #     f"GIGA A -> TUN A: "
-                    #     f"{len(packet)} bytes"
-                    # )
-                    
-                    print("Giga A Packet -> TunA:")
-                    print(" ".join(f"{b:02X}" for b in packet))
-                    
-                    utun_packet = add_utun_header(packet)
-
-                    try:
-                        sent = tun_a.send(utun_packet)
-                        print(f"UTUN A send() returned: {sent}/{len(utun_packet)} bytes")
-                    except Exception as e:
-                        print(f"UTUN A SEND ERROR: {e}")
-
-            # =================================================
-            # GIGA B -> TUN B
-            # =================================================
-
-            if to_giga_b_serial in readable:
-
-                packets = rx_b.receive_packets()
-
-                for packet in packets:
-
-                    print("Giga B Packet -> TunB:")
-                    print(" ".join(f"{b:02X}" for b in packet))
-                    
-                    utun_packet = add_utun_header(packet)
-                    
-                    try:
-                        sent = tun_b.send(utun_packet)
-                        print(f"UTUN B send() returned: {sent}/{len(utun_packet)} bytes")
-                    except Exception as e:
-                        print(f"UTUN B SEND ERROR: {e}")
+                    giga_b_serial.write(frame_packet(packet))
+            
+            # Need to figure out how to make things work with this sleep removed
+            time.sleep(.05)
 
     except KeyboardInterrupt:
 
@@ -411,8 +357,8 @@ def main():
 
     finally:
 
-        to_giga_a_serial.close()
-        to_giga_b_serial.close()
+        giga_a_serial.close()
+        giga_b_serial.close()
 
         tun_a.close()
         tun_b.close()
