@@ -230,10 +230,7 @@ void loop()
 
     // Rx Radio packet in, Tx to Serial
     if (radioPacketReceived) {
-
-        noInterrupts();
         radioPacketReceived = false;
-        interrupts();
 
         // Get the actual number of bytes received
         size_t packetLength = radio.getPacketLength();
@@ -251,7 +248,7 @@ void loop()
             // Senfd received bytes over sereal
             Serial.write(rxRing, packetLength);
 
-            // Clear serial
+            // Wait until data sent
             Serial.flush();
         }
         else {
@@ -296,15 +293,15 @@ void loop()
         // Determine predicted time for the transmit and radio state transitions
         auto predicted_time_micros = time_on_air_micros + DEFAULT_RADIOLIB_TRANSMIT_CYCLE_TIME_MICROS + (DEFAULT_RADIOLIB_PER_CHARACTER_TIME_MICROS * bytes_to_transmit);
         
-        // Get current time
-        auto current_time_micros = micros();
+        // Estimate transmit done time
+        auto transmit_done_time_micros = micros() + predicted_time_micros;
 
         // Determine upper/lower bounds determining if current time is valid to transmit
         auto lower_bound_micros = (last_hop_time_micros + HOP_GRACE_PERIOD_MICROS);
         auto upper_bound_micros = (last_hop_time_micros + (HOP_PERIOD_MS.count() * 1000UL) - HOP_GRACE_PERIOD_MICROS);
 
         // Transmit if valid
-        if ((lower_bound_micros <= current_time_micros) && (current_time_micros <= upper_bound_micros)) {
+        if ((lower_bound_micros <= transmit_done_time_micros) && (transmit_done_time_micros <= upper_bound_micros)) {
         
             // Start Transmit logic block
             radio.standby();

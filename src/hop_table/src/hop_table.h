@@ -36,7 +36,7 @@ constexpr size_t HOP_TABLE_SIZE =
 // ============================================================
 
 // User defined hop period Hz = 1 / Period
-constexpr std::chrono::milliseconds HOP_PERIOD_MS = 200ms;
+constexpr std::chrono::milliseconds HOP_PERIOD_MS = 100ms;
 
 // RadioLib overhead for standby(), transmit(), startReceive() calls
 //
@@ -63,7 +63,7 @@ unsigned long last_hop_time_micros = 0;
 //
 //      [last_hop_time_micros + HOP_GRACE_PERIOD_MICROS, last_hop_time_micros + HOP_PERIOD_MS - HOP_GRACE_PERIOD_MICROS]
 //
-constexpr uint16_t HOP_GRACE_PERIOD_MICROS = 20000; // 20ms
+constexpr uint16_t HOP_GRACE_PERIOD_MICROS = 10000; // 10ms
 
 // ============================================================
 // HW Timer interrupt callback
