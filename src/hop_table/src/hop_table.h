@@ -10,9 +10,6 @@ using namespace std::chrono_literals;
 // Hop Table
 // ============================================================
 
-// User defined hop period Hz = 1 / Period => 10Hz Hop Rate
-constexpr std::chrono::milliseconds HOP_PERIOD_MS = 100ms;
-
 // Current hop count
 volatile uint32_t hopCount = 0;
 
@@ -33,6 +30,40 @@ constexpr float HOP_TABLE[] = {
 // Hop Table Size
 constexpr size_t HOP_TABLE_SIZE =
     sizeof(HOP_TABLE) / sizeof(HOP_TABLE[0]);
+
+// ============================================================
+// Transmit Timing Values
+// ============================================================
+
+// User defined hop period Hz = 1 / Period
+constexpr std::chrono::milliseconds HOP_PERIOD_MS = 200ms;
+
+// RadioLib overhead for standby(), transmit(), startReceive() calls
+//
+// Total Transmit Time = standby(), transmit(), startReceive() and transmitting one character.
+// Time on Air for 1 char = getTimeOnAir(1)
+//
+// RadioLib overhead = Total Transmit Time - Time on Air for 1 char
+//
+uint16_t DEFAULT_RADIOLIB_TRANSMIT_CYCLE_TIME_MICROS = 12300;
+
+// Change in RadioLib overhead time for each additional character to transmit
+//
+// Determine RadioLib overhead for 1-100 characters, and find the slope of these values.
+//
+uint16_t DEFAULT_RADIOLIB_PER_CHARACTER_TIME_MICROS = 8;
+
+// Time, in micros, of the last hop that took place
+unsigned long last_hop_time_micros = 0;
+
+// Grace period before and after the hop occurs, that a transmit should not be attempted, to
+// allow and assume the receiver has hopped to the next frequency
+//
+// Transmission should only be attempted within this window: 
+//
+//      [last_hop_time_micros + HOP_GRACE_PERIOD_MICROS, last_hop_time_micros + HOP_PERIOD_MS - HOP_GRACE_PERIOD_MICROS]
+//
+constexpr uint16_t HOP_GRACE_PERIOD_MICROS = 20000; // 20ms
 
 // ============================================================
 // HW Timer interrupt callback

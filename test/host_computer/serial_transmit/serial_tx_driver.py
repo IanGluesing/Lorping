@@ -3,7 +3,7 @@ import threading
 import sys
 
 # Serial Params
-TX_PORT = "/dev/tty.usbmodem2101"
+TX_PORT = "/dev/cu.usbmodem2101"
 BAUD_RATE = 115200
 
 # Create Serial connection
@@ -24,7 +24,7 @@ serial_reader.start()
 try:
     while True:
         message = input("> ")
-        serial_connection.write((message).encode())
+        serial_connection.write((message + "\n").encode())
         serial_connection.flush()
 except KeyboardInterrupt:
     print("\nExiting.")
