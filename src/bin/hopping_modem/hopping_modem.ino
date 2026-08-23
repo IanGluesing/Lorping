@@ -266,8 +266,9 @@ void loop()
             Serial.flush();
         }
         else {
-            Serial.print("RX FAILED: ");
-            Serial.println(radio_call_status);
+            // Debug if needed, can cause tun script to bomb out because of expected packet format
+            // Serial.print("RX FAILED: ");
+            // Serial.println(radio_call_status);
         }
     }
 
