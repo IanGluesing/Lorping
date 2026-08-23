@@ -301,26 +301,19 @@ void loop()
 
     // Transmit if valid
     if (bytes_to_transmit > 0) {
-        // Read in bytes to buffer, only update the real params if transmit is successful
-        memcpy(
-            radioTxBuffer,
-            &txRing[txHead],
-            bytes_to_transmit
-        );
-
         if (FREQUENCY_HOPPING_ENABLED) {
             // Get time on air
             RadioLibTime_t time_on_air_micros = radio.getTimeOnAir(bytes_to_transmit);
 
             // Determine predicted time for the transmit and radio state transitions
             auto predicted_time_micros = time_on_air_micros + DEFAULT_RADIOLIB_TRANSMIT_CYCLE_TIME_MICROS + (DEFAULT_RADIOLIB_PER_CHARACTER_TIME_MICROS * bytes_to_transmit);
+
+            // Calculate upper/lower bounds determining if current time is valid to transmit
+            auto lower_bound_micros = (last_hop_time_micros + HOP_GRACE_PERIOD_MICROS);
+            auto upper_bound_micros = (last_hop_time_micros + (HOP_PERIOD_MS.count() * 1000UL) - HOP_GRACE_PERIOD_MICROS);
             
             // Estimate transmit done time
             auto transmit_done_time_micros = micros() + predicted_time_micros;
-
-            // Determine upper/lower bounds determining if current time is valid to transmit
-            auto lower_bound_micros = (last_hop_time_micros + HOP_GRACE_PERIOD_MICROS);
-            auto upper_bound_micros = (last_hop_time_micros + (HOP_PERIOD_MS.count() * 1000UL) - HOP_GRACE_PERIOD_MICROS);
 
             // Skip transmit if we dont meet this threshold
             if (!((lower_bound_micros <= transmit_done_time_micros) && (transmit_done_time_micros <= upper_bound_micros))) {
@@ -331,7 +324,7 @@ void loop()
         // Start Transmit logic block
         radio.standby();
         int transmit_status = radio.transmit(
-            radioTxBuffer,
+            &txRing[txHead],
             bytes_to_transmit
         );
         radio.startReceive();

@@ -348,7 +348,7 @@ def main():
                     giga_b_serial.write(frame_packet(packet))
             
             # Need to figure out how to make things work with this sleep removed
-            time.sleep(.05)
+            # time.sleep(.01)
 
     except KeyboardInterrupt:
 
