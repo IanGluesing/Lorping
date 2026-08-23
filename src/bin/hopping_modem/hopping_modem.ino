@@ -17,13 +17,16 @@
 
 using namespace mbed;
 
+#define SX1262_MODE_FSK false
+#define FREQUENCY_HOPPING_ENABLED false
+
 // ============================================================
 // Tx/Rx Ring buffers
 // ============================================================
 
 // Total ring size and LoRa transmit chunk size
 constexpr size_t RING_SIZE = UINT16_MAX;
-constexpr size_t CHUNK_SIZE = 100;
+constexpr size_t CHUNK_SIZE = 100; // This needs to be 200 to not fall behind in non-hopping LoRa VoIP
 
 // Bytes that need to be transmitted through LoRa
 uint8_t txRing[RING_SIZE];
@@ -107,7 +110,31 @@ void setup()
     // Radio Setup
     // --------------------------------------------------------
 
-    int radio_call_status = radio.begin();
+    int16_t radio_call_status = RADIOLIB_ERR_NONE;
+    if (SX1262_MODE_FSK) {
+        radio_call_status = radio.beginFSK(
+            INITIAL_LORA_FREQUENCY,     // frequency MHz
+            FSK_BIT_RATE_KBPS,          // bit rate kbps
+            FSK_FREQ_DEVIATION_KHZ,     // frequency deviation kHz
+            FSK_RX_BANDWIDTH_KHZ,       // RX bandwidth kHz
+            FSK_POWER_DBM,              // power dBm
+            FSK_NUM_PREAMBLE_BITS,      // preamble bits
+            FSK_TXCO_VOLTAGE,           // TCXO voltage
+            FSK_DCDC_REGULATOR          // DC-DC regulator
+        );
+    } else {
+        radio_call_status = radio.begin();
+
+        // These settings can be used to communicate to the Waveshare USB module, or another
+        // SX1262 running the TX code that this code is paired with.
+        // Found here: https://www.amazon.com/dp/B0DTKDXMN2?ref=ppx_yo2ov_dt_b_fed_asin_title
+        radio_call_status &= radio.setFrequency(INITIAL_LORA_FREQUENCY);
+        radio_call_status &= radio.setBandwidth(INITIAL_LORA_BANDWIDTH);
+        radio_call_status &= radio.setSpreadingFactor(LORA_SPREADING_FACTOR);
+        radio_call_status &= radio.setCodingRate(LORA_CODING_RATE);
+        radio_call_status &= radio.setSyncWord(SYNC_WORD);
+        radio_call_status &= radio.setCRC(true);
+    }
 
     if (radio_call_status != RADIOLIB_ERR_NONE) {
         Serial.print("FAILED, code ");
@@ -117,16 +144,6 @@ void setup()
             delay(1000);
         }
     }
-
-    // These settings can be used to communicate to the Waveshare USB module, or another
-    // SX1262 running the TX code that this code is paired with.
-    // Found here: https://www.amazon.com/dp/B0DTKDXMN2?ref=ppx_yo2ov_dt_b_fed_asin_title
-    radio_call_status = radio.setFrequency(INITIAL_LORA_FREQUENCY);
-    radio_call_status = radio.setBandwidth(INITIAL_LORA_BANDWIDTH);
-    radio_call_status = radio.setSpreadingFactor(LORA_SPREADING_FACTOR);
-    radio_call_status = radio.setCodingRate(LORA_CODING_RATE);
-    radio_call_status = radio.setSyncWord(SYNC_WORD);
-    radio_call_status = radio.setCRC(true);
 
     radio.setDio1Action(radioReceiveISR);
 
@@ -168,7 +185,7 @@ void loop()
     // Handle PPS Received
     // --------------------------------------------------------
 
-    if (ppsReceived) {
+    if (FREQUENCY_HOPPING_ENABLED && ppsReceived) {
         // Reset PPS flag
         noInterrupts();
         ppsReceived = false;
@@ -188,7 +205,7 @@ void loop()
     // Handle Hop Pending
     // --------------------------------------------------------
 
-    if (hopPending) {
+    if (FREQUENCY_HOPPING_ENABLED && hopPending) {
         // Reset Hop flag
         noInterrupts();
         hopPending = false;
@@ -241,9 +258,6 @@ void loop()
             packetLength
         );
 
-        // Return to receive mode
-        radio.startReceive();
-
         if (radio_call_status == RADIOLIB_ERR_NONE) {
             // Senfd received bytes over sereal
             Serial.write(rxRing, packetLength);
@@ -274,50 +288,59 @@ void loop()
         radio.clearIrqFlags(RADIOLIB_SX126X_IRQ_TX_DONE | RADIOLIB_SX126X_IRQ_RX_DONE);
     }
 
-    // Determine number of bytes to transmit
-    auto bytes_to_transmit = min(txCount, CHUNK_SIZE);
-
-    // Read in bytes to buffer, only update the real params if transmit is successful
-    auto tmp_head = txHead;
-    for (int i = 0; i < bytes_to_transmit; i++) {
-        radioTxBuffer[i] = txRing[tmp_head];
-        // Handle potential wrap around case
-        tmp_head = (tmp_head + 1) % RING_SIZE;
-    }
+    // Determine number of bytes to transmit, if we are at the end of buffer
+    // transmit the difference from the head to the end, even if its below the chunk size.
+    // This safegaurd allows us to avoid a loop each time we want to transmit something
+    auto bytes_to_transmit = min(
+        txCount,
+        min(
+            CHUNK_SIZE,
+            RING_SIZE - txHead
+        )
+    );
 
     // Transmit if valid
     if (bytes_to_transmit > 0) {
-        // Get time on air
-        RadioLibTime_t time_on_air_micros = radio.getTimeOnAir(bytes_to_transmit);
+        // Read in bytes to buffer, only update the real params if transmit is successful
+        memcpy(
+            radioTxBuffer,
+            &txRing[txHead],
+            bytes_to_transmit
+        );
 
-        // Determine predicted time for the transmit and radio state transitions
-        auto predicted_time_micros = time_on_air_micros + DEFAULT_RADIOLIB_TRANSMIT_CYCLE_TIME_MICROS + (DEFAULT_RADIOLIB_PER_CHARACTER_TIME_MICROS * bytes_to_transmit);
-        
-        // Estimate transmit done time
-        auto transmit_done_time_micros = micros() + predicted_time_micros;
+        if (FREQUENCY_HOPPING_ENABLED) {
+            // Get time on air
+            RadioLibTime_t time_on_air_micros = radio.getTimeOnAir(bytes_to_transmit);
 
-        // Determine upper/lower bounds determining if current time is valid to transmit
-        auto lower_bound_micros = (last_hop_time_micros + HOP_GRACE_PERIOD_MICROS);
-        auto upper_bound_micros = (last_hop_time_micros + (HOP_PERIOD_MS.count() * 1000UL) - HOP_GRACE_PERIOD_MICROS);
+            // Determine predicted time for the transmit and radio state transitions
+            auto predicted_time_micros = time_on_air_micros + DEFAULT_RADIOLIB_TRANSMIT_CYCLE_TIME_MICROS + (DEFAULT_RADIOLIB_PER_CHARACTER_TIME_MICROS * bytes_to_transmit);
+            
+            // Estimate transmit done time
+            auto transmit_done_time_micros = micros() + predicted_time_micros;
 
-        // Transmit if valid
-        if ((lower_bound_micros <= transmit_done_time_micros) && (transmit_done_time_micros <= upper_bound_micros)) {
-        
-            // Start Transmit logic block
-            radio.standby();
-            int transmit_status = radio.transmit(
-                radioTxBuffer,
-                bytes_to_transmit
-            );
-            radio.startReceive();
-            // End Transmit logic block
+            // Determine upper/lower bounds determining if current time is valid to transmit
+            auto lower_bound_micros = (last_hop_time_micros + HOP_GRACE_PERIOD_MICROS);
+            auto upper_bound_micros = (last_hop_time_micros + (HOP_PERIOD_MS.count() * 1000UL) - HOP_GRACE_PERIOD_MICROS);
 
-            // Update flags if valid transmit
-            if (transmit_status == RADIOLIB_ERR_NONE) {
-                txCount -= bytes_to_transmit;
-                txHead = tmp_head;
+            // Skip transmit if we dont meet this threshold
+            if (!((lower_bound_micros <= transmit_done_time_micros) && (transmit_done_time_micros <= upper_bound_micros))) {
+                return;
             }
+        }
+        
+        // Start Transmit logic block
+        radio.standby();
+        int transmit_status = radio.transmit(
+            radioTxBuffer,
+            bytes_to_transmit
+        );
+        radio.startReceive();
+        // End Transmit logic block
 
+        // Update flags if valid transmit
+        if (transmit_status == RADIOLIB_ERR_NONE) {
+            txCount -= bytes_to_transmit;
+            txHead = (txHead + bytes_to_transmit) % RING_SIZE;
         }
     }
 }
