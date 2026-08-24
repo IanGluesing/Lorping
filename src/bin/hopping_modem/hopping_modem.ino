@@ -26,7 +26,7 @@ using namespace mbed;
 
 // Total ring size and LoRa transmit chunk size
 constexpr size_t RING_SIZE = UINT16_MAX;
-constexpr size_t CHUNK_SIZE = 100; // This needs to be 200 to not fall behind in non-hopping LoRa VoIP
+constexpr size_t CHUNK_SIZE = 200; // This needs to be 200 to not fall behind in non-hopping LoRa VoIP
 
 // Bytes that need to be transmitted through LoRa
 uint8_t txRing[RING_SIZE];
@@ -35,11 +35,11 @@ uint8_t txRing[RING_SIZE];
 uint8_t rxRing[RING_SIZE];
 
 // Starting index of bytes to transmit
-size_t txHead = 0;
-// Ending index of bytes to transmit
-size_t txTail = 0;
+size_t start_of_bytes_to_transmit_index = 0;
+// Index where the next byte will be placed from Serial -> TxRing queue
+size_t index_to_place_next_serial_byte = 0;
 // Current number of bytes needing to be transmitted
-size_t txCount = 0;
+size_t number_of_valid_bytes_in_tx_ring = 0;
 
 // Starting index of bytes received over LoRa
 size_t rxHead = 0;
@@ -233,16 +233,18 @@ void loop()
         }
     }
 
-    // Read in characters and store in TxRing
-    if (Serial.available()) {
-        while (Serial.available()) {
-            // Add to current tail position
-            txRing[txTail] = Serial.read();
+    // Read in characters and store in TxRing. Have tried to optimize out this loop like 3 times
+    // and there doesnt seem to be anything faster than this. Serial.readBytes seems to have a 1ms built
+    // in sleep for each char even if you know the number of bytes you are going to read is always valid, so we cant do that
+    while (Serial.available()) {
+        // Add to current tail position
+        txRing[index_to_place_next_serial_byte++] = Serial.read();
 
-            // Update tail position and number of bytes in buffer
-            txTail = (txTail + 1) % RING_SIZE;
-            txCount++;
+        // Update tail position and number of bytes in buffer
+        if (index_to_place_next_serial_byte == RING_SIZE) {
+            index_to_place_next_serial_byte = 0;
         }
+        number_of_valid_bytes_in_tx_ring++;
     }
 
     // Rx Radio packet in, Tx to Serial
@@ -259,7 +261,7 @@ void loop()
         );
 
         if (radio_call_status == RADIOLIB_ERR_NONE) {
-            // Senfd received bytes over sereal
+            // Send received bytes over serial
             Serial.write(rxRing, packetLength);
 
             // Wait until data sent
@@ -293,10 +295,10 @@ void loop()
     // transmit the difference from the head to the end, even if its below the chunk size.
     // This safegaurd allows us to avoid a loop each time we want to transmit something
     auto bytes_to_transmit = min(
-        txCount,
+        number_of_valid_bytes_in_tx_ring,
         min(
             CHUNK_SIZE,
-            RING_SIZE - txHead
+            RING_SIZE - start_of_bytes_to_transmit_index
         )
     );
 
@@ -312,7 +314,7 @@ void loop()
             // Calculate upper/lower bounds determining if current time is valid to transmit
             auto lower_bound_micros = (last_hop_time_micros + HOP_GRACE_PERIOD_MICROS);
             auto upper_bound_micros = (last_hop_time_micros + (HOP_PERIOD_MS.count() * 1000UL) - HOP_GRACE_PERIOD_MICROS);
-            
+
             // Estimate transmit done time
             auto transmit_done_time_micros = micros() + predicted_time_micros;
 
@@ -321,11 +323,11 @@ void loop()
                 return;
             }
         }
-        
+
         // Start Transmit logic block
         radio.standby();
         int transmit_status = radio.transmit(
-            &txRing[txHead],
+            &txRing[start_of_bytes_to_transmit_index],
             bytes_to_transmit
         );
         radio.startReceive();
@@ -333,8 +335,8 @@ void loop()
 
         // Update flags if valid transmit
         if (transmit_status == RADIOLIB_ERR_NONE) {
-            txCount -= bytes_to_transmit;
-            txHead = (txHead + bytes_to_transmit) % RING_SIZE;
+            number_of_valid_bytes_in_tx_ring -= bytes_to_transmit;
+            start_of_bytes_to_transmit_index = (start_of_bytes_to_transmit_index + bytes_to_transmit) % RING_SIZE;
         }
     }
 }

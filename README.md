@@ -62,6 +62,8 @@ Image with SPI only connections between Giga and SX1262: TODO
 
 Point to point networking can be demonstrated uses `ping` and `curl`, with LoRa as the physical network layer and can be seen here: [Tun Testing](test/host_computer/tun_ping_test/)
 
+Assuming everything is setup correctly, you can also run `sudo ./test/auto_test.sh` which will automatically setup the tunnel networking, serial connections, and routes, before attempting a `ping` accross you boards.
+
 ## Future work and improvements
 
 - Allow variable param setting
@@ -70,3 +72,4 @@ Point to point networking can be demonstrated uses `ping` and `curl`, with LoRa 
 - GPS PPS Source
 - Board agnostic code
 - Libraries are all relying on imports of the main .ino, it shouldnt be like this
+- Build in docker container
