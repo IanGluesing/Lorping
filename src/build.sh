@@ -8,7 +8,9 @@ arduino-cli compile \
   --libraries $(pwd)/hop_table \
   --libraries $(pwd)/lora_impl \
   --libraries $(pwd)/device_impl \
-  --output-dir ./build_out \
+  --build-property compiler.cpp.extra_flags="-DMODE_FSK=0 -DFREQUENCY_HOPPING_ENABLED=0" \
+  --build-path ./build_out \
+  --output-dir ./binaries_out \
   bin/hopping_modem/
 
 arduino-cli compile \

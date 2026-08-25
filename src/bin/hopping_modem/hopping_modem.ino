@@ -17,9 +17,6 @@
 
 using namespace mbed;
 
-#define SX1262_MODE_FSK false
-#define FREQUENCY_HOPPING_ENABLED false
-
 // ============================================================
 // Tx/Rx Ring buffers
 // ============================================================
@@ -111,7 +108,7 @@ void setup()
     // --------------------------------------------------------
 
     int16_t radio_call_status = RADIOLIB_ERR_NONE;
-    if (SX1262_MODE_FSK) {
+    #if SX1262_MODE_FSK
         radio_call_status = radio.beginFSK(
             INITIAL_LORA_FREQUENCY,     // frequency MHz
             FSK_BIT_RATE_KBPS,          // bit rate kbps
@@ -122,7 +119,7 @@ void setup()
             FSK_TXCO_VOLTAGE,           // TCXO voltage
             FSK_DCDC_REGULATOR          // DC-DC regulator
         );
-    } else {
+    #else
         radio_call_status = radio.begin();
 
         // These settings can be used to communicate to the Waveshare USB module, or another
@@ -134,7 +131,7 @@ void setup()
         radio_call_status &= radio.setCodingRate(LORA_CODING_RATE);
         radio_call_status &= radio.setSyncWord(SYNC_WORD);
         radio_call_status &= radio.setCRC(true);
-    }
+    #endif
 
     if (radio_call_status != RADIOLIB_ERR_NONE) {
         Serial.print("FAILED, code ");
@@ -185,53 +182,51 @@ void loop()
     // Handle PPS Received
     // --------------------------------------------------------
 
-    if (FREQUENCY_HOPPING_ENABLED && ppsReceived) {
-        // Reset PPS flag
-        noInterrupts();
-        ppsReceived = false;
-        interrupts();
+    #if FREQUENCY_HOPPING_ENABLED
+        if (ppsReceived) {
+            // Reset PPS flag
+            noInterrupts();
+            ppsReceived = false;
+            interrupts();
 
-        // Clear hop counts, pause radio, update freq, start receive
-        radio.standby();
-        hopCount = 0;
-        radio.setFrequency(HOP_TABLE[hopCount]);
-        radio.startReceive();
+            // Clear hop counts, pause radio, update freq, start receive
+            radio.standby();
+            hopCount = 0;
+            radio.setFrequency(HOP_TABLE[hopCount]);
+            radio.startReceive();
 
-        hw_interrupt_timer.detach();
-        hw_interrupt_timer.attach(&hopTickOccurred, HOP_PERIOD_MS);
-    }
+            hw_interrupt_timer.detach();
+            hw_interrupt_timer.attach(&hopTickOccurred, HOP_PERIOD_MS);
+        }
+    #endif
 
     // --------------------------------------------------------
     // Handle Hop Pending
     // --------------------------------------------------------
 
-    if (FREQUENCY_HOPPING_ENABLED && hopPending) {
-        // Reset Hop flag
-        noInterrupts();
-        hopPending = false;
-        interrupts();
+    #if FREQUENCY_HOPPING_ENABLED
+        if (hopPending) {
+            // Reset Hop flag
+            noInterrupts();
+            hopPending = false;
+            interrupts();
 
-        hopCount++;
+            hopCount++;
 
-        // Determine new frequency
-        size_t next_frequency_index = (hopCount - 1) % HOP_TABLE_SIZE;
-        float next_frequency = HOP_TABLE[next_frequency_index];
+            // Determine new frequency
+            size_t next_frequency_index = (hopCount - 1) % HOP_TABLE_SIZE;
+            float next_frequency = HOP_TABLE[next_frequency_index];
 
-        // Stop current RX operation
-        radio.standby();
+            // Change frequency
+            int radio_call_status = radio.setFrequency(next_frequency);
+            last_hop_time_micros = micros();
 
-        // Change frequency
-        int radio_call_status = radio.setFrequency(next_frequency);
-        last_hop_time_micros = micros();
-
-        // Resume asynchronous RX on the new frequency
-        radio.startReceive();
-
-        if (radio_call_status != RADIOLIB_ERR_NONE) {
-            Serial.print("Frequency change failed: ");
-            Serial.println(radio_call_status);
+            if (radio_call_status != RADIOLIB_ERR_NONE) {
+                Serial.print("Frequency change failed: ");
+                Serial.println(radio_call_status);
+            }
         }
-    }
+    #endif
 
     // Read in characters and store in TxRing. Have tried to optimize out this loop like 3 times
     // and there doesnt seem to be anything faster than this. Serial.readBytes seems to have a 1ms built
@@ -304,7 +299,7 @@ void loop()
 
     // Transmit if valid
     if (bytes_to_transmit > 0) {
-        if (FREQUENCY_HOPPING_ENABLED) {
+        #if FREQUENCY_HOPPING_ENABLED
             // Get time on air
             RadioLibTime_t time_on_air_micros = radio.getTimeOnAir(bytes_to_transmit);
 
@@ -322,7 +317,7 @@ void loop()
             if (!((lower_bound_micros <= transmit_done_time_micros) && (transmit_done_time_micros <= upper_bound_micros))) {
                 return;
             }
-        }
+        #endif
 
         // Start Transmit logic block
         radio.standby();
