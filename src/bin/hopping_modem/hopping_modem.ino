@@ -23,7 +23,7 @@ using namespace mbed;
 
 // Total ring size and LoRa transmit chunk size
 constexpr size_t RING_SIZE = UINT16_MAX;
-constexpr size_t CHUNK_SIZE = 200; // This needs to be 200 to not fall behind in non-hopping LoRa VoIP
+constexpr size_t MAX_LORA_PAYLOAD_SIZE = UINT8_MAX;
 
 // Bytes that need to be transmitted through LoRa
 uint8_t txRing[RING_SIZE];
@@ -37,16 +37,6 @@ size_t start_of_bytes_to_transmit_index = 0;
 size_t index_to_place_next_serial_byte = 0;
 // Current number of bytes needing to be transmitted
 size_t number_of_valid_bytes_in_tx_ring = 0;
-
-// Starting index of bytes received over LoRa
-size_t rxHead = 0;
-// Ending index of bytes received over LoRa
-size_t rxTail = 0;
-// Current number of bytes received over LoRa
-size_t rxCount = 0;
-
-// Temp buffer of bytes that will be transmitted
-uint8_t radioTxBuffer[CHUNK_SIZE];
 
 // ============================================================
 // Peripherals
@@ -292,7 +282,7 @@ void loop()
     auto bytes_to_transmit = min(
         number_of_valid_bytes_in_tx_ring,
         min(
-            CHUNK_SIZE,
+            MAX_LORA_PAYLOAD_SIZE,
             RING_SIZE - start_of_bytes_to_transmit_index
         )
     );
@@ -304,17 +294,18 @@ void loop()
             RadioLibTime_t time_on_air_micros = radio.getTimeOnAir(bytes_to_transmit);
 
             // Determine predicted time for the transmit and radio state transitions
-            auto predicted_time_micros = time_on_air_micros + DEFAULT_RADIOLIB_TRANSMIT_CYCLE_TIME_MICROS + (DEFAULT_RADIOLIB_PER_CHARACTER_TIME_MICROS * bytes_to_transmit);
+            auto predicted_transmit_cycle_duration_micros = time_on_air_micros + DEFAULT_RADIOLIB_TRANSMIT_CYCLE_TIME_MICROS + (DEFAULT_RADIOLIB_PER_CHARACTER_TIME_MICROS * bytes_to_transmit);
 
             // Calculate upper/lower bounds determining if current time is valid to transmit
             auto lower_bound_micros = (last_hop_time_micros + HOP_GRACE_PERIOD_MICROS);
             auto upper_bound_micros = (last_hop_time_micros + (HOP_PERIOD_MS.count() * 1000UL) - HOP_GRACE_PERIOD_MICROS);
 
             // Estimate transmit done time
-            auto transmit_done_time_micros = micros() + predicted_time_micros;
+            auto current_time_micros = micros();
+            auto predicted_transmit_done_time_micros = current_time_micros + predicted_transmit_cycle_duration_micros;
 
             // Skip transmit if we dont meet this threshold
-            if (!((lower_bound_micros <= transmit_done_time_micros) && (transmit_done_time_micros <= upper_bound_micros))) {
+            if (!((lower_bound_micros <= predicted_transmit_done_time_micros) && (predicted_transmit_done_time_micros <= upper_bound_micros))) {
                 return;
             }
         #endif

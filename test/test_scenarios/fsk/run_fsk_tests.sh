@@ -15,9 +15,8 @@ arduino-cli compile \
   --libraries $(pwd)/hop_table \
   --libraries $(pwd)/lora_impl \
   --libraries $(pwd)/device_impl \
-  --build-property compiler.cpp.extra_flags="-DMODE_FSK=1 -DFREQUENCY_HOPPING_ENABLED=0" \
+  --build-property compiler.cpp.extra_flags="-DSX1262_MODE_FSK=1 -DFREQUENCY_HOPPING_ENABLED=0" \
   --build-path ./build_out \
-  --output-dir ./binaries_out \
   bin/hopping_modem/
 
 ## Deploy Non Hopping FSK Build

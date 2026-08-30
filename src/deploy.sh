@@ -2,6 +2,9 @@
 
 set -e
 
+# Get dir of this script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 FQBN="arduino:mbed_giga:giga"
 
 SERIAL_A="/dev/cu.usbmodem2101"
@@ -46,4 +49,5 @@ echo
 arduino-cli upload \
     --fqbn "$FQBN" \
     -p "$PORT" \
+    --build-path $SCRIPT_DIR/build_out \
     "$SKETCH"

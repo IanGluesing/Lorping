@@ -73,3 +73,4 @@ Assuming everything is setup correctly, you can also run `sudo ./test/auto_test.
 - Board agnostic code
 - Libraries are all relying on imports of the main .ino, it shouldnt be like this
 - Build in docker container
+- Optimal payload size per hop period calculation
