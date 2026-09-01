@@ -21,6 +21,7 @@ sleep 2
 # Go to the simple python server directory
 pushd simple_server
 
+# Run the test server, assume 2 second sleep for background process to start
 python3 test_server.py &
 TEST_SERVER_PID=$!
 echo "Got test_server PID: $TEST_SERVER_PID"

@@ -27,6 +27,7 @@ popd
 
 ## Run Non Hopping LoRa tests
 $SCRIPT_DIR/ping_non_hopping.sh
+$SCRIPT_DIR/curl_non_hopping.sh
 
 # Run LoRa Hopping Tests
 

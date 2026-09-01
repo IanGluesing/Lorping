@@ -71,12 +71,14 @@ The following tables represent what can be automatically tested using scripts fr
 | LoRa | Non-Hopping | Hopping |
 | --- | --- | --- |
 | Ping | :white_check_mark: | :white_check_mark: |
-| Curl | :x: | :x: |
+| Curl | :white_check_mark: | :x: |
+| Audio | :x: | :x: |
 
 | FSK | Non-Hopping | Hopping |
 | --- | --- | --- |
 | Ping | :white_check_mark: | :x: |
 | Curl | :white_check_mark: | :x: |
+| Audio | :x: | :x: |
 
 
 ## Future work and improvements
