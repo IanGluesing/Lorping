@@ -16,7 +16,7 @@ arduino-cli compile \
   --fqbn arduino:mbed_giga:giga \
   --verbose \
   --libraries $(pwd)/hop_table \
-  --libraries $(pwd)/lora_impl \
+  --libraries $(pwd)/modulation_config \
   --libraries $(pwd)/device_impl \
   --output-dir ./build_out \
   bin/hopping_modem/

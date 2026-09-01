@@ -9,11 +9,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 pushd $SCRIPT_DIR/../../../src/
 
 ## Build for FSK and Non Hopping
+echo "Building for: FSK, NON-HOPPING"
 arduino-cli compile \
   --fqbn arduino:mbed_giga:giga \
-  --verbose \
   --libraries $(pwd)/hop_table \
-  --libraries $(pwd)/lora_impl \
+  --libraries $(pwd)/modulation_config \
   --libraries $(pwd)/device_impl \
   --build-property compiler.cpp.extra_flags="-DSX1262_MODE_FSK=1 -DFREQUENCY_HOPPING_ENABLED=0" \
   --build-path ./build_out \

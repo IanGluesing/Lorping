@@ -64,6 +64,21 @@ Point to point networking can be demonstrated uses `ping` and `curl`, with LoRa 
 
 Assuming everything is setup correctly, you can also run `sudo ./test/auto_test.sh` which will automatically setup the tunnel networking, serial connections, and routes, before attempting a `ping` accross you boards.
 
+#### Automated Testing Coverage Matrix
+
+The following tables represent what can be automatically tested using scripts from the `test` folder:
+
+| LoRa | Non-Hopping | Hopping |
+| --- | --- | --- |
+| Ping | :white_check_mark: | :white_check_mark: |
+| Curl | :x: | :x: |
+
+| FSK | Non-Hopping | Hopping |
+| --- | --- | --- |
+| Ping | :white_check_mark: | :x: |
+| Curl | :white_check_mark: | :x: |
+
+
 ## Future work and improvements
 
 - Allow variable param setting

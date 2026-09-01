@@ -12,7 +12,14 @@
 // ============================================================
 
 #include <device_config.h>
+
+// Pull modulation config depending on compile flags
+#if SX1262_MODE_FSK
+#include <fsk_config.h>
+#else
 #include <lora_config.h>
+#endif
+
 #include <hop_table.h>
 
 using namespace mbed;
@@ -23,7 +30,6 @@ using namespace mbed;
 
 // Total ring size and LoRa transmit chunk size
 constexpr size_t RING_SIZE = UINT16_MAX;
-constexpr size_t MAX_LORA_PAYLOAD_SIZE = UINT8_MAX;
 
 // Bytes that need to be transmitted through LoRa
 uint8_t txRing[RING_SIZE];
@@ -100,7 +106,7 @@ void setup()
     int16_t radio_call_status = RADIOLIB_ERR_NONE;
     #if SX1262_MODE_FSK
         radio_call_status = radio.beginFSK(
-            INITIAL_LORA_FREQUENCY,     // frequency MHz
+            INITIAL_FREQUENCY,          // frequency MHz
             FSK_BIT_RATE_KBPS,          // bit rate kbps
             FSK_FREQ_DEVIATION_KHZ,     // frequency deviation kHz
             FSK_RX_BANDWIDTH_KHZ,       // RX bandwidth kHz
@@ -282,7 +288,7 @@ void loop()
     auto bytes_to_transmit = min(
         number_of_valid_bytes_in_tx_ring,
         min(
-            MAX_LORA_PAYLOAD_SIZE,
+            MAX_PAYLOAD_SIZE,
             RING_SIZE - start_of_bytes_to_transmit_index
         )
     );
