@@ -28,5 +28,6 @@ popd
 ## Run Non Hopping FSK tests
 $SCRIPT_DIR/ping_non_hopping.sh
 $SCRIPT_DIR/curl_non_hopping.sh
+$SCRIPT_DIR/audio_non_hopping.sh
 
 # Run FSK Hopping Tests

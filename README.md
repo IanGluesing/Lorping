@@ -72,13 +72,13 @@ The following tables represent what can be automatically tested using scripts fr
 | --- | --- | --- |
 | Ping | :white_check_mark: | :white_check_mark: |
 | Curl | :white_check_mark: | :x: |
-| Audio | :x: | :x: |
+| Audio | :white_check_mark: | :x: |
 
 | FSK | Non-Hopping | Hopping |
 | --- | --- | --- |
 | Ping | :white_check_mark: | :x: |
 | Curl | :white_check_mark: | :x: |
-| Audio | :x: | :x: |
+| Audio | :white_check_mark: | :x: |
 
 
 ## Future work and improvements
