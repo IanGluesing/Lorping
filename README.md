@@ -1,12 +1,8 @@
 # Lorping: (Lo)Ra F(r)equency Hop(ping)
 
-The following demonstrates simple frequency hopping using a predefined hop table, shared time pulse, and LoRa tx/rx pair.
+Lorping is an experimental implementation of time-synchronized frequency hopping for LoRa and FSK using the Semtech SX1262 transceiver. Two SX1262 radios share a predefined frequency-hop table and synchronized timing source, allowing both the transmitter and receiver to change operating frequency according to the same hop schedule.
 
-Hardware used:
-
-- 1x Jetson Orin Nano Super Dev Kit
-- 2x Arduino Giga R1 Wifi
-- 2x Waveshare Core1262 HF LoRa Module with ufl/sma connector and antenna
+The project uses Arduino Giga R1 WiFi boards to control the SX1262 radios and a Jetson Orin Nano to provide synchronized timing pulses. The system demonstrates frequency-hopped point-to-point communication and provides automated tests for data networking and audio transmission over both LoRa and FSK.
 
 ## High Level Diagram
 
