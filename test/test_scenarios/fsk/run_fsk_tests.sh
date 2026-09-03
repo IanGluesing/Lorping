@@ -31,3 +31,27 @@ $SCRIPT_DIR/curl_non_hopping.sh
 $SCRIPT_DIR/audio_non_hopping.sh
 
 # Run FSK Hopping Tests
+
+# pushd $SCRIPT_DIR/../../../src/
+
+# ## Build for FSK and Hopping
+# echo "Building for: FSK, HOPPING"
+# arduino-cli compile \
+#   --fqbn arduino:mbed_giga:giga \
+#   --libraries $(pwd)/hop_table \
+#   --libraries $(pwd)/modulation_config \
+#   --libraries $(pwd)/device_impl \
+#   --build-property compiler.cpp.extra_flags="-DSX1262_MODE_FSK=1 -DFREQUENCY_HOPPING_ENABLED=1" \
+#   --build-path ./build_out \
+#   bin/hopping_modem/
+
+# ## Deploy Hopping FSK Build
+# ./deploy.sh A hopping_modem
+# ./deploy.sh B hopping_modem
+
+# popd
+
+# ## Run Hopping FSK tests
+# $SCRIPT_DIR/ping_hopping.sh
+# $SCRIPT_DIR/curl_hopping.sh
+# $SCRIPT_DIR/audio_hopping.sh

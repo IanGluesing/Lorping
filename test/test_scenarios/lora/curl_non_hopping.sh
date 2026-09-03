@@ -4,6 +4,20 @@ set -euo pipefail
 # Get dir of this script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+cleanup() {
+    echo "Cleaning up..."
+
+    if [ -n "$TUN_PID" ]; then
+        sudo kill "$TUN_PID" 2>/dev/null || true
+    fi
+
+    if [ -n "$TEST_SERVER_PID" ]; then
+        sudo kill "$TEST_SERVER_PID" 2>/dev/null || true
+    fi
+}
+
+trap cleanup EXIT
+
 # Go to ping test dir
 pushd $SCRIPT_DIR/../../host_computer/tun_ping_test
 
@@ -28,15 +42,11 @@ echo "Got test_server PID: $TEST_SERVER_PID"
 sleep 2
 
 # Run ping test command
-PING_OUTPUT=$(curl --max-time 5 http://10.99.0.2:8000/)
-
-# Kill helper scripts
-sudo kill "$TUN_PID"
-sudo kill "$TEST_SERVER_PID"
+CURL_OUTPUT=$(curl --max-time 5 http://10.99.0.2:8000/)
 
 # Determine pass/fail
-echo "$PING_OUTPUT"
-if echo "$PING_OUTPUT" | grep -q "Hello from the LoRa network!"; then
+echo "$CURL_OUTPUT"
+if echo "$CURL_OUTPUT" | grep -q "Hello from the LoRa network!"; then
     echo "CURL SUCCESS"
 else
     echo "CURL FAILED"

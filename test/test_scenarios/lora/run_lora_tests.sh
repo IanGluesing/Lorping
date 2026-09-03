@@ -34,7 +34,7 @@ $SCRIPT_DIR/audio_non_hopping.sh
 
 # pushd $SCRIPT_DIR/../../../src/
 
-# ## Build for LoRa and Non Hopping
+# ## Build for LoRa and Hopping
 # echo "Building for: LORA, HOPPING"
 # arduino-cli compile \
 #   --fqbn arduino:mbed_giga:giga \
@@ -45,11 +45,11 @@ $SCRIPT_DIR/audio_non_hopping.sh
 #   --build-path ./build_out \
 #   bin/hopping_modem/
 
-# ## Deploy Non Hopping LoRa Build
+# ## Deploy Hopping LoRa Build
 # ./deploy.sh A hopping_modem
 # ./deploy.sh B hopping_modem
 
 # popd
 
-# ## Run Non Hopping LoRa tests
+# ## Run Hopping LoRa tests
 # $SCRIPT_DIR/ping_hopping.sh

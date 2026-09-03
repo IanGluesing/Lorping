@@ -40,6 +40,12 @@ TEST_SERVER_PID=$!
 echo "Got test_server PID: $TEST_SERVER_PID"
 sleep 2
 
+echo "ATTEMPING TO SEND PPS PULSE"
+# Setup routing to Board controlling the giga GPIOs
+sudo ifconfig en7 inet 10.10.10.1 netmask 255.255.255.0 up
+# Ensure proper ssh key and ssh config has been setup with your jetson
+ssh -t jetson "sudo busybox devmem 0x2434040 w 0x4; sudo busybox devmem 0x2430070 w 0x8; sudo ./Desktop/test_gpio/env/bin/python3 ./Desktop/test_gpio/pseudo_pps_pulse.py"
+
 # Run ping test command
 CURL_OUTPUT=$(curl --max-time 5 http://10.99.0.2:8000/)
 
