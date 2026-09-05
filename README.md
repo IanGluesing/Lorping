@@ -68,7 +68,7 @@ The following tables represent what can be automatically tested using scripts fr
 | --- | --- | --- |
 | Ping | :white_check_mark: | :white_check_mark: |
 | Curl | :white_check_mark: | :x: |
-| Audio | :white_check_mark: | :x: |
+| Audio | :white_check_mark: | :white_check_mark: |
 
 | FSK | Non-Hopping | Hopping |
 | --- | --- | --- |
@@ -86,4 +86,3 @@ The following tables represent what can be automatically tested using scripts fr
 - Board agnostic code
 - Libraries are all relying on imports of the main .ino, it shouldnt be like this
 - Build in docker container
-- Optimal payload size per hop period calculation

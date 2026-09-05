@@ -4,6 +4,16 @@ set -euo pipefail
 # Get dir of this script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+cleanup() {
+    echo "Cleaning up..."
+
+    if [ -n "$TUN_PID" ]; then
+        sudo kill "$TUN_PID" 2>/dev/null || true
+    fi
+}
+
+trap cleanup EXIT
+
 # Go to ping test dir
 pushd $SCRIPT_DIR/../../host_computer/tun_ping_test
 

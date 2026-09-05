@@ -37,9 +37,28 @@ uint8_t txRing[RING_SIZE];
 // Bytes that were received over LoRa
 uint8_t rxRing[RING_SIZE];
 
+// ============================================================
+// Tx Ring Offsets
+//
+//  TxRing:
+//
+//  -------------------------------------------------
+//  |         datadatadatada                        |
+//  -------------------------------------------------
+//            |             |                       └ RING_SIZE
+//            |             |
+//            |             └-- index_to_place_next_serial_byte
+//            |
+//            └- start_of_bytes_to_transmit_index
+//
+//
+// ============================================================
+
 // Starting index of bytes to transmit
 size_t start_of_bytes_to_transmit_index = 0;
 // Index where the next byte will be placed from Serial -> TxRing queue
+// This index can also be thought of as the cursor in a document, in that
+// the next entered char will get printed to where it currently is pointing to
 size_t index_to_place_next_serial_byte = 0;
 // Current number of bytes needing to be transmitted
 size_t number_of_valid_bytes_in_tx_ring = 0;
@@ -126,7 +145,8 @@ void setup()
         radio_call_status &= radio.setSpreadingFactor(LORA_SPREADING_FACTOR);
         radio_call_status &= radio.setCodingRate(LORA_CODING_RATE);
         radio_call_status &= radio.setSyncWord(SYNC_WORD);
-        radio_call_status &= radio.setCRC(true);
+        radio_call_status &= radio.setCRC(LORA_CRC_ENABLED);
+        radio_call_status &= radio.setPreambleLength(LORA_PREAMBLE_LENGTH);
     #endif
 
     if (radio_call_status != RADIOLIB_ERR_NONE) {
@@ -296,24 +316,46 @@ void loop()
     // Transmit if valid
     if (bytes_to_transmit > 0) {
         #if FREQUENCY_HOPPING_ENABLED
-            // Get time on air
-            RadioLibTime_t time_on_air_micros = radio.getTimeOnAir(bytes_to_transmit);
+            #if SX1262_MODE_FSK
+                // FSK: Determine if `bytes_to_transmit` can be transmitted with the remaining time, otherwise wait until next window
 
-            // Determine predicted time for the transmit and radio state transitions
-            auto predicted_transmit_cycle_duration_micros = time_on_air_micros + DEFAULT_RADIOLIB_TRANSMIT_CYCLE_TIME_MICROS + (DEFAULT_RADIOLIB_PER_CHARACTER_TIME_MICROS * bytes_to_transmit);
+                // Get time on air
+                RadioLibTime_t time_on_air_micros = radio.getTimeOnAir(bytes_to_transmit);
 
-            // Calculate upper/lower bounds determining if current time is valid to transmit
-            auto lower_bound_micros = (last_hop_time_micros + HOP_GRACE_PERIOD_MICROS);
-            auto upper_bound_micros = (last_hop_time_micros + (HOP_PERIOD_MS.count() * 1000UL) - HOP_GRACE_PERIOD_MICROS);
+                // Determine predicted time for the transmit and radio state transitions
+                auto predicted_transmit_cycle_duration_micros = time_on_air_micros + DEFAULT_RADIOLIB_TRANSMIT_CYCLE_TIME_MICROS + (DEFAULT_RADIOLIB_PER_CHARACTER_TIME_MICROS * bytes_to_transmit);
 
-            // Estimate transmit done time
-            auto current_time_micros = micros();
-            auto predicted_transmit_done_time_micros = current_time_micros + predicted_transmit_cycle_duration_micros;
+                // Calculate upper/lower bounds determining if current time is valid to transmit
+                auto lower_bound_micros = (last_hop_time_micros + HOP_GRACE_PERIOD_MICROS);
+                auto upper_bound_micros = (last_hop_time_micros + (HOP_PERIOD_MS.count() * 1000UL) - HOP_GRACE_PERIOD_MICROS);
 
-            // Skip transmit if we dont meet this threshold
-            if (!((lower_bound_micros <= predicted_transmit_done_time_micros) && (predicted_transmit_done_time_micros <= upper_bound_micros))) {
-                return;
-            }
+                // Estimate transmit done time
+                auto current_time_micros = micros();
+                auto predicted_transmit_done_time_micros = current_time_micros + predicted_transmit_cycle_duration_micros;
+
+                // Skip transmit if we dont meet this threshold
+                if (!((lower_bound_micros <= predicted_transmit_done_time_micros) && (predicted_transmit_done_time_micros <= upper_bound_micros))) {
+                    return;
+                }
+            #else
+                // LoRa: Determine max payload size with remaining time in the current hop window to maximize throughput
+
+                // Calculate upper bound of when the transmit can end
+                auto upper_bound_micros = (last_hop_time_micros + (HOP_PERIOD_MS.count() * 1000UL) - HOP_GRACE_PERIOD_MICROS);
+
+                // Estimate remaining time to transmit
+                auto available_time_to_transmit = upper_bound_micros - micros() - DEFAULT_RADIOLIB_TRANSMIT_CYCLE_TIME_MICROS;
+                if (available_time_to_transmit < 0) {
+                    return;
+                }
+
+                // Transmit as many bytes as possible with the remaining time in the current window
+                bytes_to_transmit = min(bytes_to_transmit, maxPayloadForTime(available_time_to_transmit));
+
+                if (bytes_to_transmit == 0) {
+                    return;
+                }
+            #endif
         #endif
 
         // Start Transmit logic block

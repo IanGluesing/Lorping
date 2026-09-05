@@ -194,6 +194,8 @@ class SerialPacketReceiver:
             del self.buffer[:total_length]
 
             packets.append(packet)
+            # for x in packets:
+            #     print(x.hex(" "))
 
         return packets
 

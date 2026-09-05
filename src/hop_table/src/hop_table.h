@@ -36,6 +36,11 @@ constexpr size_t HOP_TABLE_SIZE =
 // ============================================================
 
 // User defined hop period Hz = 1 / Period
+//
+// Assuming a grace period of 10'000 micros(10ms) on either side of the hop,
+// with 12'300 micros(12.3ms) of default transmit cycle time
+// 100ms - 20ms - 12.3ms = ~67.5ms of time on air
+//
 constexpr std::chrono::milliseconds HOP_PERIOD_MS = 100ms;
 
 // RadioLib overhead for standby(), transmit(), startReceive() calls
@@ -45,7 +50,7 @@ constexpr std::chrono::milliseconds HOP_PERIOD_MS = 100ms;
 //
 // RadioLib overhead = Total Transmit Time - Time on Air for 1 char
 //
-uint16_t DEFAULT_RADIOLIB_TRANSMIT_CYCLE_TIME_MICROS = 12300;
+uint16_t DEFAULT_RADIOLIB_TRANSMIT_CYCLE_TIME_MICROS = 12'300;
 
 // Change in RadioLib overhead time for each additional character to transmit
 //
@@ -63,7 +68,7 @@ unsigned long last_hop_time_micros = 0;
 //
 //      [last_hop_time_micros + HOP_GRACE_PERIOD_MICROS, last_hop_time_micros + HOP_PERIOD_MS - HOP_GRACE_PERIOD_MICROS]
 //
-constexpr uint16_t HOP_GRACE_PERIOD_MICROS = 10000; // 10ms
+constexpr uint16_t HOP_GRACE_PERIOD_MICROS = 10'000; // 10ms
 
 // ============================================================
 // HW Timer interrupt callback

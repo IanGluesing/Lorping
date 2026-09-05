@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-# This file is chatgpt slop that I will be splitting out in the future
+# Tone test for verifying that LoRa voice packets arrive
+# with exactly the same payload bytes that were transmitted.
 
 import serial
 import struct
@@ -10,18 +11,16 @@ import sys
 
 from audio_test import (
     SerialPacketReceiver,
-    VoiceReceiver,
     encode_mulaw,
-    decode_mulaw,
-    frame_packet,
+    SERIAL_A,
+    SERIAL_B,
+    BAUD_RATE,
     SAMPLE_RATE,
     FRAME_MS,
     SAMPLES_PER_FRAME,
     VOICE_PACKET_SIZE,
     PACKET_TYPE_VOICE,
-    SERIAL_A,
-    SERIAL_B,
-    BAUD_RATE,
+    frame_packet,
 )
 
 # ============================================================
@@ -33,6 +32,7 @@ TONE_AMPLITUDE = 0.5       # 50%
 
 TEST_SECONDS = 10
 
+
 # ============================================================
 # Generate one tone frame
 # ============================================================
@@ -42,10 +42,14 @@ def generate_tone_frame(sequence):
     pcm = bytearray()
 
     # Global sample index.
-    start_sample = (sequence * SAMPLES_PER_FRAME)
+    start_sample = (
+        sequence * SAMPLES_PER_FRAME
+    )
 
     for i in range(SAMPLES_PER_FRAME):
+
         sample_index = start_sample + i
+
         t = sample_index / SAMPLE_RATE
 
         value = (
@@ -59,7 +63,11 @@ def generate_tone_frame(sequence):
         )
 
         value = int(value)
-        pcm += struct.pack("<h", value)
+
+        pcm += struct.pack(
+            "<h",
+            value
+        )
 
     return bytes(pcm)
 
@@ -71,16 +79,34 @@ def generate_tone_frame(sequence):
 class ToneTransmitter:
 
     def __init__(self, serial_port):
+
         self.serial = serial_port
+
+        # Save the exact μ-law audio bytes that were sent.
+        #
+        # Key:
+        #     sequence number
+        #
+        # Value:
+        #     exact transmitted audio bytes
+        #
+        # This lets the receiver perform a byte-for-byte
+        # comparison against what was actually transmitted.
+
+        self.transmitted = {}
 
     def send(self, sequence):
 
-        pcm = generate_tone_frame(sequence)
+        pcm = generate_tone_frame(
+            sequence
+        )
 
-        # Use the EXACT same μ-law encoder
-        # as the normal voice path.
+        # Convert PCM to the exact bytes that will
+        # be placed into the LoRa packet.
 
-        audio = encode_mulaw(pcm)
+        audio = encode_mulaw(
+            pcm
+        )
 
         packet = (
             bytes([PACKET_TYPE_VOICE])
@@ -88,7 +114,16 @@ class ToneTransmitter:
             + audio
         )
 
-        self.serial.write(frame_packet(packet))
+        # Save the exact transmitted audio bytes.
+
+        self.transmitted[sequence] = audio
+
+        # Send packet.
+
+        self.serial.write(
+            frame_packet(packet)
+        )
+
         self.serial.flush()
 
 
@@ -98,20 +133,45 @@ class ToneTransmitter:
 
 class ToneVerifier:
 
-    def __init__(self):
+    def __init__(self, transmitted):
+
+        self.transmitted = transmitted
 
         self.expected_sequence = None
 
         self.received = 0
         self.lost = 0
 
-        self.total_samples = 0
+        # Number of packets whose audio payload matched
+        # the transmitted bytes exactly.
 
-        self.total_squared_error = 0.0
+        self.matches = 0
 
-        self.max_error = 0
+        # Number of packets whose audio payload differed.
+
+        self.mismatches = 0
+
+        # Total number of bytes compared.
+
+        self.bytes_checked = 0
+
+        # Total number of bytes that differed.
+
+        self.bytes_mismatched = 0
+
+        # Largest number of differing bytes in one packet.
+
+        self.max_packet_byte_errors = 0
+
+        # First few mismatches are useful for debugging.
+
+        self.mismatch_details = []
 
     def receive(self, packet):
+
+        # ----------------------------------------------------
+        # Packet size
+        # ----------------------------------------------------
 
         if len(packet) != VOICE_PACKET_SIZE:
 
@@ -121,6 +181,23 @@ class ToneVerifier:
             )
 
             return
+
+        # ----------------------------------------------------
+        # Packet type
+        # ----------------------------------------------------
+
+        if packet[0] != PACKET_TYPE_VOICE:
+
+            print(
+                f"FAIL: unexpected packet type "
+                f"0x{packet[0]:02X}"
+            )
+
+            return
+
+        # ----------------------------------------------------
+        # Sequence
+        # ----------------------------------------------------
 
         sequence = struct.unpack(
             ">H",
@@ -159,83 +236,143 @@ class ToneVerifier:
         self.received += 1
 
         # ----------------------------------------------------
-        # Decode received μ-law
+        # Look up the exact bytes that were transmitted
         # ----------------------------------------------------
 
-        received_pcm = decode_mulaw(
-            audio
-        )
+        if sequence not in self.transmitted:
 
-        # ----------------------------------------------------
-        # Generate what SHOULD have arrived
-        # ----------------------------------------------------
-
-        expected_pcm = generate_tone_frame(
-            sequence
-        )
-
-        # Because μ-law is intentionally lossy,
-        # compare against the expected μ-law round trip.
-
-        expected_pcm = decode_mulaw(
-            encode_mulaw(
-                expected_pcm
-            )
-        )
-
-        received_samples = struct.unpack(
-            "<" + "h" * SAMPLES_PER_FRAME,
-            received_pcm
-        )
-
-        expected_samples = struct.unpack(
-            "<" + "h" * SAMPLES_PER_FRAME,
-            expected_pcm
-        )
-
-        # ----------------------------------------------------
-        # Calculate error
-        # ----------------------------------------------------
-
-        for received, expected in zip(
-            received_samples,
-            expected_samples
-        ):
-
-            error = (
-                received - expected
+            print(
+                f"FAIL: received sequence "
+                f"{sequence}, but no transmitted "
+                f"packet with that sequence exists"
             )
 
-            self.total_squared_error += (
-                error * error
+            self.mismatches += 1
+
+            return
+
+        expected_audio = (
+            self.transmitted[sequence]
+        )
+
+        # ----------------------------------------------------
+        # Byte-for-byte comparison
+        # ----------------------------------------------------
+
+        if audio == expected_audio:
+
+            self.matches += 1
+
+        else:
+
+            self.mismatches += 1
+
+            # Find every byte that differs.
+
+            byte_errors = []
+
+            for i, (
+                received_byte,
+                expected_byte
+            ) in enumerate(
+                zip(
+                    audio,
+                    expected_audio
+                )
+            ):
+
+                if received_byte != expected_byte:
+
+                    byte_errors.append(
+                        (
+                            i,
+                            expected_byte,
+                            received_byte
+                        )
+                    )
+
+            self.bytes_checked += len(
+                expected_audio
             )
 
-            self.max_error = max(
-                self.max_error,
-                abs(error)
+            self.bytes_mismatched += len(
+                byte_errors
             )
 
-            self.total_samples += 1
+            self.max_packet_byte_errors = max(
+                self.max_packet_byte_errors,
+                len(byte_errors)
+            )
+
+            # Keep only the first 10 mismatching packets
+            # so a bad link doesn't spam the terminal.
+
+            if len(self.mismatch_details) < 10:
+
+                self.mismatch_details.append(
+                    (
+                        sequence,
+                        byte_errors
+                    )
+                )
+
+        if audio == expected_audio:
+
+            self.bytes_checked += len(
+                expected_audio
+            )
+
+        # ----------------------------------------------------
+        # Progress
+        # ----------------------------------------------------
 
         if sequence % 50 == 0:
+
+            status = (
+                "MATCH"
+                if audio == expected_audio
+                else "MISMATCH"
+            )
 
             print(
                 f"RX seq={sequence}, "
                 f"packets={self.received}, "
-                f"lost={self.lost}"
+                f"lost={self.lost}, "
+                f"matches={self.matches}, "
+                f"mismatches={self.mismatches}, "
+                f"status={status}"
             )
 
     def report(self):
 
-        if self.total_samples == 0:
+        print()
+        print("========================================")
+        print(" Audio Tone Test Results")
+        print("========================================")
 
-            print()
-            print("FAIL: no audio received")
-            return False
+        print(
+            f"Packets transmitted : "
+            f"{len(self.transmitted)}"
+        )
 
-        rmse = math.sqrt(
-            self.total_squared_error
-            / self.total_samples
+        print(
+            f"Packets received    : "
+            f"{self.received}"
+        )
+
+        print(
+            f"Packets lost        : "
+            f"{self.lost}"
+        )
+
+        print(
+            f"Packets matched     : "
+            f"{self.matches}"
+        )
+
+        print(
+            f"Packets mismatched  : "
+            f"{self.mismatches}"
         )
 
         total_expected = (
@@ -243,7 +380,7 @@ class ToneVerifier:
             + self.lost
         )
 
-        loss_percent = 0
+        loss_percent = 0.0
 
         if total_expected:
 
@@ -253,33 +390,113 @@ class ToneVerifier:
                 / total_expected
             )
 
-        print()
-        print("========================================")
-        print(" Audio Tone Test Results")
-        print("========================================")
+        print(
+            f"Packet loss         : "
+            f"{loss_percent:.3f}%"
+        )
 
-        print(f"Packets received : {self.received}")
-        print(f"Packets lost     : {self.lost}")
-        print(f"Packet loss      : {loss_percent:.3f}%")
-        print(f"Samples checked  : {self.total_samples}")
-        print(f"Audio RMSE       : {rmse:.2f}")
-        print(f"Maximum error    : {self.max_error}")
+        print(
+            f"Bytes checked       : "
+            f"{self.bytes_checked}"
+        )
 
-        # For a byte-for-byte radio path,
-        # there should be essentially zero error
-        # relative to the μ-law encode/decode result.
+        print(
+            f"Bytes mismatched    : "
+            f"{self.bytes_mismatched}"
+        )
+
+        if self.bytes_checked:
+
+            byte_error_percent = (
+                100.0
+                * self.bytes_mismatched
+                / self.bytes_checked
+            )
+
+        else:
+
+            byte_error_percent = 0.0
+
+        print(
+            f"Byte error rate     : "
+            f"{byte_error_percent:.6f}%"
+        )
+
+        print(
+            f"Max byte errors/"
+            f"packet              : "
+            f"{self.max_packet_byte_errors}"
+        )
+
+        # ----------------------------------------------------
+        # Print mismatch details
+        # ----------------------------------------------------
+
+        if self.mismatch_details:
+
+            print()
+            print("Mismatch details:")
+            print()
+
+            for (
+                sequence,
+                errors
+            ) in self.mismatch_details:
+
+                print(
+                    f"  Sequence {sequence}: "
+                    f"{len(errors)} byte errors"
+                )
+
+                # Show first 16 byte errors.
+
+                for (
+                    index,
+                    expected,
+                    received
+                ) in errors[:16]:
+
+                    print(
+                        f"    byte {index}: "
+                        f"expected 0x{expected:02X}, "
+                        f"received 0x{received:02X}"
+                    )
+
+                if len(errors) > 16:
+
+                    print(
+                        f"    ... "
+                        f"{len(errors) - 16} more"
+                    )
+
+        # ----------------------------------------------------
+        # Pass/fail
+        # ----------------------------------------------------
 
         passed = (
-            self.lost == 0
-            and rmse == 0
+            self.received > 0
+            and self.lost == 0
+            and self.mismatches == 0
+            and self.matches == len(
+                self.transmitted
+            )
         )
 
         print()
 
         if passed:
-            print("PASS")
+
+            print(
+                "PASS: every received packet "
+                "matched the transmitted bytes exactly"
+            )
+
         else:
-            print("FAIL")
+
+            print(
+                "FAIL: transmitted and received "
+                "data did not match exactly"
+            )
 
         return passed
 
@@ -290,15 +507,35 @@ class ToneVerifier:
 
 def main():
 
-    print(f"Tone frequency : {TONE_FREQUENCY} Hz")
-    print(f"Sample rate    : {SAMPLE_RATE} Hz")
-    print(f"Frame size     : {FRAME_MS} ms")
-    print(f"Samples/frame  : {SAMPLES_PER_FRAME}")
-    print(f"Packet size    : {VOICE_PACKET_SIZE}")
+    print(
+        f"Tone frequency : "
+        f"{TONE_FREQUENCY} Hz"
+    )
+
+    print(
+        f"Sample rate    : "
+        f"{SAMPLE_RATE} Hz"
+    )
+
+    print(
+        f"Frame size     : "
+        f"{FRAME_MS} ms"
+    )
+
+    print(
+        f"Samples/frame  : "
+        f"{SAMPLES_PER_FRAME}"
+    )
+
+    print(
+        f"Packet size    : "
+        f"{VOICE_PACKET_SIZE}"
+    )
+
     print()
 
     # --------------------------------------------------------
-    # Create Serial connections and wrappers
+    # Create Serial connections
     # --------------------------------------------------------
 
     giga_a = serial.Serial(
@@ -321,7 +558,9 @@ def main():
         giga_a
     )
 
-    verifier = ToneVerifier()
+    verifier = ToneVerifier(
+        transmitter.transmitted
+    )
 
     # --------------------------------------------------------
     # Send tone
@@ -333,13 +572,19 @@ def main():
         / FRAME_MS
     )
 
-    print(f"Sending {total_frames} tone frames...")
+    print(
+        f"Sending {total_frames} "
+        f"tone frames..."
+    )
+
     start = time.monotonic()
 
     for sequence in range(total_frames):
 
+        sequence &= 0xFFFF
+
         transmitter.send(
-            sequence & 0xFFFF
+            sequence
         )
 
         # Allow receiver to process data
@@ -362,7 +607,8 @@ def main():
 
                 if (
                     len(packet) > 0
-                    and packet[0] == PACKET_TYPE_VOICE
+                    and packet[0]
+                    == PACKET_TYPE_VOICE
                 ):
 
                     verifier.receive(
@@ -379,10 +625,10 @@ def main():
     print("Draining receiver...")
 
     drain_until = (
-        time.monotonic() + 2
+        time.monotonic() + 10
     )
 
-    while time.monotonic() < drain_until:
+    while (time.monotonic() < drain_until) and (verifier.received != total_frames):
 
         packets = (
             receiver.receive_packets()
@@ -392,7 +638,8 @@ def main():
 
             if (
                 len(packet) > 0
-                and packet[0] == PACKET_TYPE_VOICE
+                and packet[0]
+                == PACKET_TYPE_VOICE
             ):
 
                 verifier.receive(
@@ -413,6 +660,7 @@ def main():
     sys.exit(
         0 if passed else 1
     )
+
 
 if __name__ == "__main__":
 
