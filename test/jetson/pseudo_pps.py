@@ -13,8 +13,8 @@ GPIO.setup(JETSON_PPS1, GPIO.OUT, initial=GPIO.LOW)
 GPIO.setup(JETSON_PPS2, GPIO.OUT, initial=GPIO.LOW)
 
 try:
-    # Generate 1Hz PPS for 5 Seconds, update as needed
-    for i in range(5):
+    # Generate 1Hz PPS for 1 Seconds, update as needed
+    for i in range(1):
         # PPS Rising Edge
         GPIO.output(JETSON_PPS1, GPIO.HIGH)
         GPIO.output(JETSON_PPS2, GPIO.HIGH)

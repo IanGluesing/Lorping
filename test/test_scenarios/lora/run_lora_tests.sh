@@ -53,4 +53,5 @@ $SCRIPT_DIR/audio_non_hopping.sh
 
 # ## Run Hopping LoRa tests
 # $SCRIPT_DIR/ping_hopping.sh
+# $SCRIPT_DIR/curl_hopping.sh
 # $SCRIPT_DIR/audio_hopping.sh

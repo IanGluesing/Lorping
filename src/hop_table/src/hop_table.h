@@ -39,9 +39,9 @@ constexpr size_t HOP_TABLE_SIZE =
 //
 // Assuming a grace period of 10'000 micros(10ms) on either side of the hop,
 // with 12'300 micros(12.3ms) of default transmit cycle time
-// 100ms - 20ms - 12.3ms = ~67.5ms of time on air
+// 50ms - 20ms - 12.3ms = ~17.5ms of time on air
 //
-constexpr std::chrono::milliseconds HOP_PERIOD_MS = 100ms;
+constexpr std::chrono::milliseconds HOP_PERIOD_MS = 50ms;
 
 // RadioLib overhead for standby(), transmit(), startReceive() calls
 //

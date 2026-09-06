@@ -63,6 +63,9 @@ size_t index_to_place_next_serial_byte = 0;
 // Current number of bytes needing to be transmitted
 size_t number_of_valid_bytes_in_tx_ring = 0;
 
+// hacky for avoiding transmit collision
+// constexpr bool is_a = false;
+
 // ============================================================
 // Peripherals
 // ============================================================
@@ -316,6 +319,16 @@ void loop()
     // Transmit if valid
     if (bytes_to_transmit > 0) {
         #if FREQUENCY_HOPPING_ENABLED
+            // Guarantee no transmit collision, not an ideal solution
+            // if (is_a) {
+            //     if (hopCount % 2 == 0) {
+            //         return;
+            //     }
+            // } else {
+            //     if (hopCount % 2 == 1) {
+            //         return;
+            //     }
+            // }
             #if SX1262_MODE_FSK
                 // FSK: Determine if `bytes_to_transmit` can be transmitted with the remaining time, otherwise wait until next window
 
