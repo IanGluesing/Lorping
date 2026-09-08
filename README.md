@@ -4,6 +4,11 @@ Lorping is an experimental implementation of time-synchronized frequency hopping
 
 The project uses Arduino Giga R1 WiFi boards to control the SX1262 radios and a Jetson Orin Nano to provide synchronized timing pulses. The system demonstrates frequency-hopped point-to-point communication and provides automated tests for data networking and audio transmission over both LoRa and FSK.
 
+![Spectrum Analyzer and Waterfall Display](media/ping_hopping.gif)
+*Spectrum analyzer and waterfall visualization of a frequency-hopped `ping -c 10 -W 2000 10.99.0.2` command between two LoRa network peers*
+
+More samples can be seen here: [Examples](media/)
+
 ## High Level Diagram
 
 Setup and instructions can be found below. This setup consists of a Jetson Orin Nano connected via GPIO to two Arduino Giga R1 Wifi boards. Each Giga board is then connected over SPI to a Waveshare Core1262 HF LoRa Module. Each Core1262 module is equipped with a uFL -> SMA Antenna.
